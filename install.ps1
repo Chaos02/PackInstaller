@@ -398,7 +398,9 @@ public static extern bool SetForegroundWindow(IntPtr hWnd);
 		
 		
 try {
-	Set-Location -Path "$PSScriptRoot"
+	if ( [bool]($PSScriptRoot -match '.*\PackInstaller?') ) { Set-Location -Path ..\ } else {
+		Set-Location -Path "$PSScriptRoot"
+	}
 	
 	
 	
