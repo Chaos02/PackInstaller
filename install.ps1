@@ -398,8 +398,9 @@ public static extern bool SetForegroundWindow(IntPtr hWnd);
 		
 		
 try {
-	if ( [bool]($PSScriptRoot -match '.*\PackInstaller?') ) { Set-Location -Path ..\ } else {
+	if ( [bool]($PSScriptRoot -match '.*.PackInstaller.?') ) { Set-Location -Path '..\'; $PackRoot = (Split-Path $PSScriptRoot -Parent) } else {
 		Set-Location -Path "$PSScriptRoot"
+		$PackRoot = $PSScriptRoot
 	}
 	
 	
@@ -411,20 +412,20 @@ try {
 	
 	
 	Set-PSDebug -Off
-	Image-Render -Path "$PSScriptRoot\pack-icon.png" -FillMode ProportionalHeight
+	Image-Render -Path "$PackRoot\pack-icon.png" -FillMode ProportionalHeight
 	if ($DebugPreference) { Set-PSDebug -Trace 2 }
 	
 	
 	#gets latest forge version
-	if (Test-Path "$PSScriptRoot\forge*installer.jar") {
-		#$Forge = $(((Gci $PSScriptRoot -filter 'forge*installer.jar' | sort-object name)[-1]).fullname)
+	if (Test-Path "$PackRoot\forge*installer.jar") {
+		#$Forge = $(((Gci $PackRoot -filter 'forge*installer.jar' | sort-object name)[-1]).fullname)
 		#$Forge -match '[^\\]+$'
 		#$Forge = $Matches[0]
 		#$Matches.Clear()
 	
 		#find actual latest Forge file
 		Set-PSDebug -Off
-		$ForgeUnsorted = @(Gci $PSScriptRoot -filter 'forge*installer.jar' | sort-object name)
+		$ForgeUnsorted = @(Gci $PackRoot -filter 'forge*installer.jar' | sort-object name)
 		$ForgeCompare = [int[]]::new($ForgeUnsorted.length)
 		for ($i=0; $i -lt $ForgeUnsorted.length; $i++) {
 			$tmp = (Gci $ForgeUnsorted[$i]).Name | Select-String -pattern '\d+' -AllMatches
@@ -462,8 +463,8 @@ try {
 	
 	if ( !($noJava) -and !(Test-Path "$JRE\java.exe") -or (& "$JRE\java.exe" -d64 -version)) { #checks for 64bit java
 		$noForge = $True
-		Start-Process -Wait -FilePath (((Gci $PSScriptRoot -filter 'jre*x64.exe' | sort-object name)[-1]).fullname) -Verb Runas | Out-Null
-		#& (((Gci $PSScriptRoot -filter 'jre*x64.exe' | sort-object name)[-1]).fullname) | Out-Null
+		Start-Process -Wait -FilePath (((Gci $PackRoot -filter 'jre*x64.exe' | sort-object name)[-1]).fullname) -Verb Runas | Out-Null
+		#& (((Gci $PackRoot -filter 'jre*x64.exe' | sort-object name)[-1]).fullname) | Out-Null
 		if ( !( $LASTEXITCODE -eq 0 ) ) {Write-Host "Error while installing java!"; Write-Host "java installation corrupt :/" ; Read-Host "Press ENTER to continue..." ; exit 1}
 	}
 	
@@ -472,13 +473,13 @@ try {
 		& $JRE\java.exe -jar "$Forge" | Out-Null #waits for forge to exit
 		if ( !( $LASTEXITCODE -eq 0 ) ) {Write-Host "Error while installing forge!" ; Read-Host "Press ENTER to continue..." ; exit 1}
 		$json = Get-Content $launcherProfiles | ConvertFrom-Json
-		#Remove-Item -Recurse -Force "$PSScriptRoot\libraries"
-		#cmd /C del /Q /S "$PSScriptRoot\libraries" >nul
-		Remove-Item-ToRecycleBin "$PSScriptRoot\libraries" -ErrorAction 'SilentlyContinue'
+		#Remove-Item -Recurse -Force "$PackRoot\libraries"
+		#cmd /C del /Q /S "$PackRoot\libraries" >nul
+		Remove-Item-ToRecycleBin "$PackRoot\libraries" -ErrorAction 'SilentlyContinue'
 		Write-Host "Installing Forge server files!"
 		& $JRE\java.exe -jar "$Forge" --installServer | Out-Null
-		Remove-Item -Recurse -Force "$PSScriptRoot\run.bat","$PSScriptRoot\run.sh"
-		Remove-Item-ToRecycleBin "$PSScriptRoot\$Forge.log" -ErrorAction 'SilentlyContinue'
+		Remove-Item -Recurse -Force "$PackRoot\run.bat","$PackRoot\run.sh"
+		Remove-Item-ToRecycleBin "$PackRoot\$Forge.log" -ErrorAction 'SilentlyContinue'
 	}
 	
 	
@@ -489,10 +490,10 @@ try {
 		$javaArgs = "-Xmx" + $RAM + "G -Xms" + 4 + "G -XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M"
 	}
 	# Launcher Icon Bitcheezzz
-	Resize-Image -AppendSizeToFilename -images "$PSScriptRoot\pack-icon.png" -OutPath "$PSScriptRoot" -NewWidth 128 -NewHeight 128
-	if (Test-Path "$PSScriptRoot\pack-icon_128x128.png") {
-		$icon = "data:image/png;base64,$([convert]::ToBase64String((get-content $PSScriptRoot\pack-icon_128x128.png -encoding byte)))"
-		Remove-Item -Force "$PSScriptRoot\pack-icon_128x128.png"
+	Resize-Image -AppendSizeToFilename -images "$PackRoot\pack-icon.png" -OutPath "$PackRoot" -NewWidth 128 -NewHeight 128
+	if (Test-Path "$PackRoot\pack-icon_128x128.png") {
+		$icon = "data:image/png;base64,$([convert]::ToBase64String((get-content $PackRoot\pack-icon_128x128.png -encoding byte)))"
+		Remove-Item -Force "$PackRoot\pack-icon_128x128.png"
 	} elseif ([bool]($json.profiles -match 'forge')) {
 		$icon = $json.profiles.forge.icon
 	} else {
@@ -546,8 +547,8 @@ try {
 		if ( !([bool]($json.profiles -match "$UUID")) ) { $json.profiles | add-Member -Name $UUID -value $Profile -MemberType NoteProperty } else { $json.profiles.$UUID = $Profile }
 		#$json.profiles.$UUID.Remove($(Select-Object $json.profiles.$UUID.'Name')); $json.profiles.$UUID.Remove('----')
 		
-		if ( !("$PSScriptRoot" -eq "$installDir") ) { #dont try to overwrite files
-			Copy-Item -Force -Exclude "$PackName\" "$PSScriptRoot\*" $installDir
+		if ( !("$PackRoot" -eq "$installDir") ) { #dont try to overwrite files
+			Copy-Item -Force -Exclude "$PackName\" "$PackRoot\*" $installDir
 			cmd /c "mklink /D /J $installDir\$($Profile.Item('name')) .\saves\$($Profile.Item('name'))"
 			
 			if ($? -eq $False) {
@@ -565,11 +566,11 @@ try {
 		$json.profiles.$UUID = $Profile
 		
 		#update modpack
-		if ( !($PSScriptRoot -eq $installdir) ) { #dont try to overwrite files
+		if ( !($PackRoot -eq $installdir) ) { #dont try to overwrite files
 			#move files from current exec dir to previous installation
 			$oldDir = $json.profiles.$UUID.gameDir
 			Remove-Item -Recurse -Force "$oldDir\mods","$oldDir\config","$oldDir\crash-reports","$oldDir\logs","$oldDir\libraries"
-			Copy-Item -Recurse -Force "$PSScriptRoot\mods","$PSScriptRoot\config","$PSScriptRoot\craftpresence","$PSScriptRoot\resourcepacks","$PSScriptRoot\shaderpacks","$PSScriptRoot\saves","$PSScriptRoot\libraries" "$installDir"
+			Copy-Item -Recurse -Force "$PackRoot\mods","$PackRoot\config","$PackRoot\craftpresence","$PackRoot\resourcepacks","$PackRoot\shaderpacks","$PackRoot\saves","$PackRoot\libraries" "$installDir"
 			#update server files aswell!
 		} else {
 			Write-Host "SCRIPT DIR EQUALS INSTALL DIR"
